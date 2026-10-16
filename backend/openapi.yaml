@@ -1,0 +1,246 @@
+openapi: 3.0.3
+info:
+  title: AppiLabs API
+  version: 1.0.0
+  description: |
+    REST API for the AppiLabs platform. All responses use `{ "data": ..., "meta"?: ... }` on success and
+    `{ "error": { "code", "message", "details"?, "requestId" } }` on failure.
+    Admin endpoints require `Authorization: Bearer <accessToken>` from `/auth/login`.
+    Automation endpoints require `X-API-Key: <AUTOMATION_API_KEY>`.
+tags:
+  - { name: System }
+  - { name: Content }
+  - { name: Conversions }
+  - { name: Payments }
+  - { name: Auth }
+  - { name: Admin }
+  - { name: Automation }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+    apiKey: { type: apiKey, in: header, name: X-API-Key }
+  parameters:
+    slug: { name: slug, in: path, required: true, schema: { type: string } }
+    id: { name: id, in: path, required: true, schema: { type: string } }
+    page: { name: page, in: query, schema: { type: integer, minimum: 1 } }
+    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+    q: { name: q, in: query, description: Case-insensitive search, schema: { type: string } }
+    format: { name: format, in: query, description: Set to csv to export, schema: { type: string, enum: [csv] } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: validation_error }
+            message: { type: string }
+            details: { type: array, items: { type: object, properties: { path: { type: string }, message: { type: string } } } }
+            requestId: { type: string }
+    Attribution:
+      type: object
+      properties:
+        utmSource: { type: string }
+        utmMedium: { type: string }
+        utmCampaign: { type: string }
+        utmTerm: { type: string }
+        utmContent: { type: string }
+        referrer: { type: string }
+        landingPage: { type: string }
+        referralCode: { type: string }
+    LeadInput:
+      type: object
+      required: [name, email]
+      properties:
+        type: { type: string, enum: [contact, project, corporate_training] }
+        pillar: { type: string, enum: [solutions, consulting, academy, general] }
+        serviceSlug: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        company: { type: string }
+        message: { type: string, description: Required if goal is empty }
+        goal: { type: string }
+        timeline: { type: string }
+        budget: { type: string }
+        teamSize: { type: string }
+        marketingConsent: { type: boolean }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+        website: { type: string, description: Honeypot. Must be empty. }
+    BookingInput:
+      type: object
+      required: [name, email, preferredDates]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        company: { type: string }
+        pillar: { type: string, enum: [solutions, consulting, academy, general] }
+        topic: { type: string }
+        preferredDates: { type: array, minItems: 1, maxItems: 3, items: { type: string, format: date-time } }
+        mode: { type: string, enum: [video, phone, in_person] }
+        notes: { type: string }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+    EnrollmentInput:
+      type: object
+      required: [courseSlug, name, email]
+      properties:
+        courseSlug: { type: string }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        organization: { type: string }
+        experienceLevel: { type: string, enum: [new, some, experienced] }
+        goals: { type: string }
+        payNow: { type: boolean, default: true }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+    ResearchInput:
+      type: object
+      required: [serviceSlug, academicLevel, discipline, topic, requirements, deadline, name, email, integrityAcknowledged]
+      properties:
+        serviceSlug: { type: string }
+        academicLevel: { type: string, enum: [undergraduate, masters, doctoral, professional, other] }
+        discipline: { type: string }
+        institution: { type: string }
+        topic: { type: string }
+        requirements: { type: string, minLength: 20 }
+        deadline: { type: string, format: date }
+        supportMode: { type: string, enum: [sessions, written_feedback, both] }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        integrityAcknowledged: { type: boolean, enum: [true] }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+  responses:
+    Error: { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Created: { description: Created, content: { application/json: { schema: { type: object, properties: { data: { type: object } } } } } }
+    Ok: { description: OK, content: { application/json: { schema: { type: object, properties: { data: {}, meta: { type: object } } } } } }
+paths:
+  /health:
+    get: { tags: [System], summary: Liveness check, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /ready:
+    get: { tags: [System], summary: Readiness check (database and integrations), responses: { '200': { $ref: '#/components/responses/Ok' }, '503': { $ref: '#/components/responses/Error' } } }
+  /services:
+    get:
+      tags: [Content]
+      summary: List published services
+      parameters:
+        - { name: pillar, in: query, schema: { type: string, enum: [solutions, consulting, academy] } }
+        - { name: track, in: query, schema: { type: string, enum: [training, research] } }
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /services/{slug}:
+    get: { tags: [Content], summary: Get a service (308 redirect if slug was renamed), parameters: [{ $ref: '#/components/parameters/slug' }], responses: { '200': { $ref: '#/components/responses/Ok' }, '308': { description: Moved }, '404': { $ref: '#/components/responses/Error' } } }
+  /courses:
+    get: { tags: [Content], summary: List published courses, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /courses/{slug}:
+    get: { tags: [Content], summary: Get a course, parameters: [{ $ref: '#/components/parameters/slug' }], responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } } }
+  /blog:
+    get: { tags: [Content], summary: List published articles, parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/limit' }, { name: tag, in: query, schema: { type: string } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /blog/{slug}:
+    get: { tags: [Content], summary: Get an article, parameters: [{ $ref: '#/components/parameters/slug' }], responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } } }
+  /case-studies:
+    get: { tags: [Content], summary: List published case studies, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /case-studies/{slug}:
+    get: { tags: [Content], summary: Get a case study, parameters: [{ $ref: '#/components/parameters/slug' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /settings/public:
+    get: { tags: [Content], summary: Public business settings (contact details, flags), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /resources:
+    get: { tags: [Content], summary: List downloadable resources, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /sitemap-entries:
+    get: { tags: [Content], summary: Published slugs for sitemap and prerendering, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /leads:
+    post:
+      tags: [Conversions]
+      summary: Create an enquiry (contact, project onboarding, corporate training)
+      description: Send JSON, or multipart/form-data with a `payload` JSON field and up to 3 `files`.
+      requestBody:
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/LeadInput' } }
+          multipart/form-data: { schema: { type: object, properties: { payload: { type: string }, files: { type: array, items: { type: string, format: binary } } } } }
+      responses: { '201': { $ref: '#/components/responses/Created' }, '422': { $ref: '#/components/responses/Error' }, '429': { $ref: '#/components/responses/Error' } }
+  /bookings:
+    post: { tags: [Conversions], summary: Request a consultation, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/BookingInput' } } } }, responses: { '201': { $ref: '#/components/responses/Created' }, '422': { $ref: '#/components/responses/Error' } } }
+  /enrollments:
+    post:
+      tags: [Conversions]
+      summary: Enroll in a course. Returns a payment authorizationUrl when payment is required and enabled.
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/EnrollmentInput' } } } }
+      responses: { '201': { $ref: '#/components/responses/Created' }, '404': { $ref: '#/components/responses/Error' } }
+  /research-requests:
+    post:
+      tags: [Conversions]
+      summary: Submit an academic research support request (multipart with optional files)
+      requestBody:
+        content:
+          multipart/form-data: { schema: { type: object, properties: { payload: { type: string, description: JSON of ResearchInput }, files: { type: array, items: { type: string, format: binary } } } } }
+          application/json: { schema: { $ref: '#/components/schemas/ResearchInput' } }
+      responses: { '201': { $ref: '#/components/responses/Created' }, '413': { $ref: '#/components/responses/Error' }, '415': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }
+  /resources/{slug}/request:
+    post: { tags: [Conversions], summary: Request a downloadable resource (captures a lead), parameters: [{ $ref: '#/components/parameters/slug' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /newsletter/subscribe:
+    post: { tags: [Conversions], summary: Subscribe (double opt-in; consent must be true), responses: { '202': { description: Pending confirmation } } }
+  /newsletter/confirm:
+    post: { tags: [Conversions], summary: Confirm a subscription token, responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } } }
+  /newsletter/unsubscribe:
+    post: { tags: [Conversions], summary: Unsubscribe with email and signed token, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /events:
+    post: { tags: [Conversions], summary: Record a first-party analytics event (sent only after consent), responses: { '202': { description: Accepted } } }
+  /payments/verify/{reference}:
+    get: { tags: [Payments], summary: Verify a payment with the provider and update the enrollment, parameters: [{ name: reference, in: path, required: true, schema: { type: string } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /payments/webhook/paystack:
+    post: { tags: [Payments], summary: Paystack webhook (HMAC SHA512 signature in x-paystack-signature), responses: { '200': { description: Received }, '401': { description: Invalid signature } } }
+  /auth/setup-status:
+    get: { tags: [Auth], summary: Whether first-time setup is required, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/setup:
+    post: { tags: [Auth], summary: Create the first owner account (requires SETUP_TOKEN and an empty user table), responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /auth/login:
+    post: { tags: [Auth], summary: Sign in. Returns an access token and sets an httpOnly refresh cookie., responses: { '200': { $ref: '#/components/responses/Ok' }, '401': { $ref: '#/components/responses/Error' } } }
+  /auth/refresh:
+    post: { tags: [Auth], summary: Rotate refresh cookie and get a new access token (requires X-Requested-With appilabs), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/logout:
+    post: { tags: [Auth], summary: Revoke the current session, responses: { '204': { description: Signed out } } }
+  /auth/me:
+    get: { tags: [Auth], security: [{ bearer: [] }], summary: Current user, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/change-password:
+    post: { tags: [Auth], security: [{ bearer: [] }], summary: Change password and revoke other sessions, responses: { '204': { description: Changed } } }
+  /admin/dashboard:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: Overview metrics, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/analytics:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: Events, top pages and lead sources, parameters: [{ name: days, in: query, schema: { type: integer } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/{collection}:
+    get:
+      tags: [Admin]
+      security: [{ bearer: [] }]
+      summary: List records with search, filters, pagination and CSV export
+      description: "collection is one of leads, bookings, enrollments, research-requests, subscribers, payments, services, courses, blog, case-studies. Filters vary per collection (for example status, pillar, type)."
+      parameters: [{ name: collection, in: path, required: true, schema: { type: string } }, { $ref: '#/components/parameters/q' }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/limit' }, { $ref: '#/components/parameters/format' }, { name: sort, in: query, schema: { type: string, example: -createdAt } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+    post: { tags: [Admin], security: [{ bearer: [] }], summary: Create content (services, courses, blog, case-studies), parameters: [{ name: collection, in: path, required: true, schema: { type: string } }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /admin/{collection}/{id}:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: Get one record, parameters: [{ name: collection, in: path, required: true, schema: { type: string } }, { $ref: '#/components/parameters/id' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    patch: { tags: [Admin], security: [{ bearer: [] }], summary: Update a record (status, notes or content fields), parameters: [{ name: collection, in: path, required: true, schema: { type: string } }, { $ref: '#/components/parameters/id' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Admin], security: [{ bearer: [] }], summary: Delete a record (also removes attached files), parameters: [{ name: collection, in: path, required: true, schema: { type: string } }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: Deleted } } }
+  /admin/files/{id}:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: Download a private uploaded file (audited), parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: File stream } } }
+  /admin/settings:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: Get settings, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Admin], security: [{ bearer: [] }], summary: Update settings, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/users:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: List users (owner only), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Admin], security: [{ bearer: [] }], summary: Create an admin or editor (owner only), responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /admin/users/{id}:
+    patch: { tags: [Admin], security: [{ bearer: [] }], summary: Change role or deactivate (owner only), parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/audit-logs:
+    get: { tags: [Admin], security: [{ bearer: [] }], summary: Audit trail of administrative actions, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /automation/stale-inquiries:
+    get: { tags: [Automation], security: [{ apiKey: [] }], summary: Inquiries still "new" after N hours, parameters: [{ name: hours, in: query, schema: { type: integer, default: 48 } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /automation/daily-summary:
+    get: { tags: [Automation], security: [{ apiKey: [] }], summary: Everything created on a UTC day, parameters: [{ name: date, in: query, schema: { type: string, format: date } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /automation/upcoming-bookings:
+    get: { tags: [Automation], security: [{ apiKey: [] }], summary: Confirmed and requested consultations in the next N days, parameters: [{ name: days, in: query, schema: { type: integer, default: 7 } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /automation/enrollment-summary:
+    get: { tags: [Automation], security: [{ apiKey: [] }], summary: Enrollments and revenue by course, parameters: [{ name: days, in: query, schema: { type: integer, default: 30 } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /automation/weekly-activity:
+    get: { tags: [Automation], security: [{ apiKey: [] }], summary: Seven day business activity report, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /automation/purge-uploads:
+    post: { tags: [Automation], security: [{ apiKey: [] }], summary: Delete uploads past their retention date, responses: { '200': { $ref: '#/components/responses/Ok' } } }

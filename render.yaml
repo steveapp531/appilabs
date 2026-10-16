@@ -1,0 +1,57 @@
+# Render Blueprint: New > Blueprint > select this repo.
+# MongoDB is not hosted on Render. Create a free MongoDB Atlas cluster and paste its URI into MONGODB_URI.
+services:
+  - type: web
+    name: appilabs-api
+    runtime: node
+    plan: starter            # free plan works for testing but sleeps when idle
+    region: frankfurt        # closest Render region to West Africa
+    buildCommand: cd backend && npm ci --omit=dev
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: NODE_VERSION, value: "20.18.0" }
+      - { key: TRUST_PROXY, value: "1" }
+      - { key: MONGODB_URI, sync: false }
+      - { key: PUBLIC_SITE_URL, sync: false }          # e.g. https://appilabs.com
+      - { key: API_PUBLIC_URL, sync: false }           # e.g. https://api.appilabs.com
+      - { key: CORS_ORIGINS, sync: false }             # e.g. https://appilabs.com,https://www.appilabs.com
+      - { key: JWT_SECRET, generateValue: true }
+      - { key: COOKIE_SECURE, value: "true" }
+      - { key: SETUP_TOKEN, sync: false }              # set once for first admin, then delete
+      - { key: EMAIL_DRIVER, value: smtp }
+      - { key: EMAIL_FROM, sync: false }
+      - { key: ADMIN_NOTIFY_EMAIL, sync: false }
+      - { key: SMTP_HOST, sync: false }
+      - { key: SMTP_PORT, value: "587" }
+      - { key: SMTP_USER, sync: false }
+      - { key: SMTP_PASS, sync: false }
+      - { key: PAYMENT_PROVIDER, value: paystack }      # use "none" until Paystack is verified
+      - { key: PAYSTACK_SECRET_KEY, sync: false }
+      - { key: STORAGE_DRIVER, value: s3 }
+      - { key: S3_ENDPOINT, sync: false }
+      - { key: S3_REGION, value: auto }
+      - { key: S3_BUCKET, sync: false }
+      - { key: S3_ACCESS_KEY_ID, sync: false }
+      - { key: S3_SECRET_ACCESS_KEY, sync: false }
+      - { key: AUTOMATION_API_KEY, generateValue: true }
+      - { key: VERCEL_DEPLOY_HOOK_URL, sync: false }
+
+  - type: cron
+    name: appilabs-reports
+    runtime: python
+    schedule: "0 7 * * *"     # 07:00 UTC daily (07:00 in Accra)
+    buildCommand: echo "No dependencies"
+    startCommand: cd automation && python -m appilabs_automation all --notify smtp
+    envVars:
+      - { key: PYTHON_VERSION, value: "3.12.7" }
+      - { key: APPILABS_API_URL, sync: false }
+      - { key: APPILABS_AUTOMATION_API_KEY, sync: false }   # copy AUTOMATION_API_KEY from appilabs-api
+      - { key: SMTP_HOST, sync: false }
+      - { key: SMTP_PORT, value: "587" }
+      - { key: SMTP_USER, sync: false }
+      - { key: SMTP_PASS, sync: false }
+      - { key: SMTP_FROM, sync: false }
+      - { key: REPORT_TO, sync: false }

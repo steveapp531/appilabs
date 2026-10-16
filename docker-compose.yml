@@ -1,0 +1,17 @@
+# Local MongoDB for development. Optional: you can use MongoDB Atlas or a local install instead.
+services:
+  mongo:
+    image: mongo:7
+    container_name: appilabs-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - appilabs-mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  appilabs-mongo:

@@ -1,0 +1,22 @@
+# Optional alternative to the Render cron job: run the automation from GitHub Actions.
+# Add repository secrets APPILABS_API_URL and APPILABS_AUTOMATION_API_KEY (and SMTP_* + REPORT_TO for email).
+name: Scheduled reports
+on:
+  schedule: [{ cron: '0 7 * * 1-5' }]
+  workflow_dispatch:
+jobs:
+  reports:
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_REPORTS == 'true' || github.event_name == 'workflow_dispatch' }}
+    defaults: { run: { working-directory: automation } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: python -m appilabs_automation all --notify file
+        env:
+          APPILABS_API_URL: ${{ secrets.APPILABS_API_URL }}
+          APPILABS_AUTOMATION_API_KEY: ${{ secrets.APPILABS_AUTOMATION_API_KEY }}
+          OUTPUT_DIR: ./output
+      - uses: actions/upload-artifact@v4
+        with: { name: reports, path: automation/output, retention-days: 30 }

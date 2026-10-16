@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.env
+.env.*
+!.env.example
+backend/storage/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+__pycache__/
+*.pyc
+.venv/
+automation/output/
+.pytest_cache/

@@ -1,0 +1,37 @@
+// ILLUSTRATIVE examples only (isDemo: true). They describe the kind of work AppiLabs does,
+// not specific client results. Replace them with real, approved case studies before launch.
+export const caseStudies = [
+  {
+    slug: 'automated-kpi-reporting',
+    title: 'Automated weekly KPI reporting for a subscription platform',
+    pillar: 'consulting',
+    sector: 'Media and streaming',
+    summary: 'Replacing a manual weekly report with a scheduled pipeline and a shared tracker.',
+    challenge: 'A weekly partner report was compiled by hand from several exports, which took most of a working day and occasionally contained copy errors.',
+    approach: ['Agreed metric definitions with the commercial team', 'Built queries against the event store and a scheduled extraction job', 'Generated the tracker and summary automatically', 'Added checks that flag unusual week on week changes'],
+    deliverables: ['Data extraction scripts', 'KPI tracker workbook', 'Scheduled job and run book'],
+    isDemo: true,
+  },
+  {
+    slug: 'clinic-booking-mvp',
+    title: 'Appointment booking MVP for a group of clinics',
+    pillar: 'solutions',
+    sector: 'Healthcare',
+    summary: 'A focused first release that tests whether patients will book and pay online.',
+    challenge: 'Bookings were taken by phone, with no record of missed appointments or demand by time of day.',
+    approach: ['Mapped the booking journey with front desk staff', 'Built a web booking flow with SMS reminders', 'Added a simple admin view for daily schedules', 'Tracked bookings and no-shows from day one'],
+    deliverables: ['Web booking application', 'Admin schedule view', 'Usage dashboard'],
+    isDemo: true,
+  },
+  {
+    slug: 'finance-team-power-bi',
+    title: 'Power BI programme for a finance team',
+    pillar: 'academy',
+    sector: 'Financial services',
+    summary: 'A five week programme built around the team\'s own monthly reporting pack.',
+    challenge: 'The finance team rebuilt the same management pack in spreadsheets every month.',
+    approach: ['Assessed skills and reviewed the existing pack', 'Taught Power BI using anonymised company data', 'Each participant rebuilt one section of the pack', 'Ran follow up office hours after go live'],
+    deliverables: ['Tailored course materials', 'Rebuilt reporting pack', 'Team reference guide'],
+    isDemo: true,
+  },
+].map((c) => ({ ...c, status: 'published' }));

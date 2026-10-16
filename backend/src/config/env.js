@@ -81,7 +81,7 @@ if (env.PAYMENT_PROVIDER === 'paystack' && !env.PAYSTACK_SECRET_KEY) {
   process.exit(1);
 }
 if (env.isProd && env.STORAGE_DRIVER === 'local') {
-  console.warn('[env] STORAGE_DRIVER=local in production. Render disks are ephemeral unless you attach a persistent disk. Use s3.');
+  console.warn('[env] STORAGE_DRIVER=local in production. Serverless and ephemeral filesystems do not persist uploads. Use s3.');
 }
 
 export default env;

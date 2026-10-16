@@ -1,12 +1,40 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "npm ci --prefix frontend",
-  "buildCommand": "npm run build --prefix frontend",
-  "outputDirectory": "frontend/dist",
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [{ "source": "/((?!assets/|resources/).*)", "destination": "/app.html" }],
+  "services": {
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist",
+      "cleanUrls": true,
+      "trailingSlash": false,
+      "rewrites": [{ "source": "/((?!assets/|resources/).*)", "destination": "/app.html" }]
+    },
+    "backend": {
+      "root": "backend",
+      "framework": "express",
+      "entrypoint": "src/index.js",
+      "installCommand": "npm ci",
+      "functions": {
+        "src/index.js": {
+          "includeFiles": "openapi.yaml"
+        }
+      }
+    },
+    "automation": {
+      "root": "automation",
+      "runtime": "python",
+      "entrypoint": "app:app",
+      "bindings": [{ "type": "service", "service": "backend", "format": "url", "env": "APPILABS_API_URL" }]
+    }
+  },
+  "rewrites": [
+    { "source": "/api/cron/reports", "destination": { "service": "automation" } },
+    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
+  ],
+  "crons": [{ "path": "/api/cron/reports", "schedule": "0 7 * * *" }],
   "headers": [
     {
       "source": "/assets/(.*)",

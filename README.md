@@ -28,7 +28,7 @@ AppiLabs is a technology, data and training business based in Accra, Ghana. This
 12. [File uploads](#file-uploads)
 13. [SEO and analytics](#seo-and-analytics)
 14. [Editing content](#editing-content)
-15. [Deploying (Vercel + Render + MongoDB Atlas)](#deploying)
+15. [Deploying (Vercel Services + MongoDB Atlas)](#deploying)
 16. [Push to GitHub](#push-to-github)
 17. [Troubleshooting](#troubleshooting)
 18. [Known limitations and next steps](#known-limitations-and-next-steps)
@@ -79,7 +79,7 @@ Further reading: [ARCHITECTURE.md](ARCHITECTURE.md), [API.md](API.md), [DEPLOYME
 | Storage | Local disk in development, any private S3-compatible bucket in production (Cloudflare R2, AWS S3, Backblaze B2) |
 | Automation | Python 3.10+ standard library only |
 | Tests | Vitest + Supertest (API), Vitest + Testing Library (UI), unittest (Python) |
-| Hosting | Vercel (frontend), Render (API and cron job), MongoDB Atlas (database) |
+| Hosting | Vercel Services (frontend, API and scheduled reports), MongoDB Atlas (database) |
 
 ---
 
@@ -89,12 +89,12 @@ Further reading: [ARCHITECTURE.md](ARCHITECTURE.md), [API.md](API.md), [DEPLOYME
 flowchart LR
   V[Visitor] -->|HTML prerendered + JS| FE[Frontend on Vercel]
   A[Admin] --> FE
-  FE -->|JSON over HTTPS /api/v1| API[Express API on Render]
+  FE -->|same-origin /api/v1| API[Express API on Vercel]
   API --> DB[(MongoDB Atlas)]
   API --> S3[(Private object storage)]
   API --> SMTP[SMTP email]
   API <-->|initialize / verify / webhook| PS[Paystack]
-  CRON[Python reports, Render cron] -->|X-API-Key| API
+  CRON[Python reports, Vercel Cron] -->|service binding + X-API-Key| API
   API -.->|deploy hook on publish| FE
 ```
 
@@ -215,7 +215,7 @@ npm run build --prefix frontend      # builds and prerenders every page
 npm run preview --prefix frontend    # serves dist/ with the same routing as Vercel on http://localhost:4173
 ```
 
-If the API is running during the build (`VITE_API_URL`), pages are prerendered with live content.
+If an API URL is available during the build (`VITE_API_URL`), pages are prerendered with live content. In the Vercel Services setup the service binding is runtime-only, so the build uses bundled content and the browser fetches current data from the same-origin `/api` route.
 
 ---
 
@@ -235,7 +235,7 @@ Answer the prompts, or run non-interactively:
 ADMIN_NAME="Your Name" ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='a-long-password' npm run create-admin
 ```
 
-On Render, run the same command from the service Shell tab.
+For the Render alternative, run the same command from the service Shell tab.
 
 **Option B: in the browser**
 
@@ -295,7 +295,7 @@ Reports: `stale`, `daily`, `upcoming`, `enrollments`, `weekly`, or `all`. Delive
 Setup:
 
 1. Create a Paystack account and complete business verification.
-2. Copy the secret key into `PAYSTACK_SECRET_KEY` on Render.
+2. Copy the secret key into `PAYSTACK_SECRET_KEY` in Vercel's backend environment variables.
 3. In the Paystack dashboard set the **webhook URL** to `https://<your-api>/api/v1/payments/webhook/paystack` and the **callback URL** to `https://<your-site>/payment/callback`.
 4. Make a test payment with a Paystack test card, then confirm the enrollment shows *Paid* in the admin.
 
@@ -313,7 +313,7 @@ The API verifies every transaction with Paystack before marking anything paid, c
 
 Accepted: PDF, Word, Excel, PowerPoint, CSV, text and SPSS files, 10 MB each, 3 per request (configurable). Files are checked by extension, MIME type and file signature, stored under random names, never served at a public URL, downloadable only by owners and admins (each download is audited), and deleted after `UPLOAD_RETENTION_DAYS` (180 by default).
 
-Render's disk is temporary, so production must use `STORAGE_DRIVER=s3` with a **private** bucket. Cloudflare R2 has a generous free tier:
+Hosted filesystems are often temporary, so production must use `STORAGE_DRIVER=s3` with a **private** bucket. Cloudflare R2 has a generous free tier:
 
 ```
 STORAGE_DRIVER=s3
@@ -354,9 +354,11 @@ No platform can guarantee rankings. Publishing useful articles regularly (the In
 Full guide and checklist: [DEPLOYMENT.md](DEPLOYMENT.md). In short:
 
 1. **MongoDB Atlas:** create a free cluster, a database user and network access, copy the connection string.
-2. **Render:** New > Blueprint > select the repo. `render.yaml` creates the API and the daily report job. Fill in the environment variables.
-3. **Vercel:** New Project > import the repo, keep the **root directory as the repository root** (settings come from `vercel.json`), add `VITE_API_URL`, `VITE_SITE_URL` and analytics variables.
-4. Add your domains, update `CORS_ORIGINS` and `PUBLIC_SITE_URL` on Render, create the first admin, configure Paystack webhooks, submit the sitemap.
+2. **Vercel:** Add New > Project > import the repo and keep the **root directory as the repository root**. The root `vercel.json` defines the frontend, API, automation, routing and daily cron.
+3. Add the Vercel environment variables listed in [DEPLOYMENT.md](DEPLOYMENT.md). Do not set `APPILABS_API_URL`; Vercel injects it through the automation-to-backend service binding.
+4. Allow the Vercel backend to connect to MongoDB Atlas, add your domain, create the first admin, configure Paystack webhooks and submit the sitemap.
+
+`render.yaml` remains available if you later choose to host the API and report schedule on Render instead of Vercel. Do not deploy both sets of services against the same production database.
 
 ---
 
@@ -379,11 +381,11 @@ git push -u origin main
 
 | Problem | Fix |
 | --- | --- |
-| `MongooseServerSelectionError` / `/ready` shows database unavailable | MongoDB is not running or `MONGODB_URI` is wrong. Run `npm run db:up`, or check Atlas network access allows Render's outbound IPs (or `0.0.0.0/0`). |
+| `MongooseServerSelectionError` / `/ready` shows database unavailable | MongoDB is not running or `MONGODB_URI` is wrong. Run `npm run db:up`, or check Atlas network access allows Vercel's outbound connections. |
 | Forms fail with a network error in the browser | API not running, or the site's origin is missing from `CORS_ORIGINS`. |
-| Admin keeps returning to sign in after a refresh in production | Set `COOKIE_SECURE=true`, use HTTPS on both domains, and make sure the frontend origin is in `CORS_ORIGINS`. Some browsers block third-party cookies; serving the API on a subdomain of your site (for example `api.appilabs.com`) avoids this. |
+| Admin keeps returning to sign in after a refresh in production | Set `COOKIE_SECURE=true`, use HTTPS and set the site origin in `CORS_ORIGINS`. The frontend and API share one origin through Vercel routing. |
 | Backend tests hang on first run | The in-memory MongoDB binary is downloading. Or set `MONGODB_URI_TEST`. |
-| Uploaded files disappear on Render | Use `STORAGE_DRIVER=s3`. Render's disk resets on every deploy. |
+| Uploaded files disappear after a deployment | Use `STORAGE_DRIVER=s3`; Vercel function filesystems are ephemeral. |
 | Payment stays "pending" | Check the Paystack webhook URL and secret key, then use the verify link on the callback page again. |
 | New article missing from the sitemap | Rebuild the frontend, or set `VERCEL_DEPLOY_HOOK_URL` so publishing triggers it. |
 | `npm run seed` reports 0 new records | Expected after the first run. The seed only adds missing items. |

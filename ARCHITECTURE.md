@@ -12,11 +12,9 @@
 
 ```mermaid
 flowchart TB
-  subgraph Vercel
+  subgraph Vercel Services
     STATIC[Prerendered HTML per page<br/>sitemap.xml, robots.txt]
     SPA[React app bundle<br/>admin chunk loaded on demand]
-  end
-  subgraph Render
     API[Express API<br/>/api/v1]
     CRON[Python report job]
   end
@@ -27,13 +25,13 @@ flowchart TB
   GA[Google Analytics 4]
 
   Browser --> STATIC --> SPA
-  SPA -- fetch JSON --> API
+  SPA -- same-origin /api/v1 --> API
   SPA -- after consent --> GA
   API --> DB
   API --> OBJ
   API --> MAIL
   API <--> PAY
-  CRON -- X-API-Key --> API
+  CRON -- private service binding + X-API-Key --> API
   API -. deploy hook .-> Vercel
 ```
 
@@ -121,7 +119,7 @@ Login returns a 15 minute access token (kept in memory only) and sets a 7 day ht
 
 ## Scaling notes
 
-- The API is stateless (sessions in MongoDB), so Render can run several instances. Rate limits are in memory per instance; for many instances, switch `express-rate-limit` to a Redis store.
+- The API is stateless (sessions in MongoDB), so Vercel can scale function instances independently. Rate limits are in memory per instance; for many instances, switch `express-rate-limit` to a Redis store.
 - Public GET responses send `Cache-Control` with `s-maxage`, ready for a CDN in front of the API.
 - MongoDB indexes cover every admin filter and the slug lookups. Analytics events can be moved to a time-series collection or a TTL index as volume grows.
 - Uploads go straight to object storage, so API instances keep no local state.

@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import patch
 
 from appilabs_automation import reports
+from app import app
 
 
 class ReportTests(unittest.TestCase):
@@ -23,6 +25,42 @@ class ReportTests(unittest.TestCase):
         title, body = reports.enrollment_report(data)
         self.assertIn("GHS 1,800", title)
         self.assertIn("awaiting payment", body)
+
+    def test_cron_endpoint_rejects_unauthorized_requests(self):
+        with patch.dict("os.environ", {"CRON_SECRET": "test-secret"}):
+            response = self._invoke({"REQUEST_METHOD": "GET"})
+
+        self.assertEqual(response[0], "401 Unauthorized")
+
+    def test_cron_endpoint_requires_a_configured_secret(self):
+        with patch.dict("os.environ", {}, clear=True):
+            response = self._invoke({"REQUEST_METHOD": "GET"})
+
+        self.assertEqual(response[0], "503 Service Unavailable")
+
+    def test_cron_endpoint_runs_reports_and_upload_cleanup(self):
+        with patch.dict("os.environ", {"CRON_SECRET": "test-secret"}):
+            with patch("app.main", return_value=0) as run_job:
+                response = self._invoke(
+                    {
+                        "REQUEST_METHOD": "GET",
+                        "HTTP_AUTHORIZATION": "Bearer test-secret",
+                    }
+                )
+
+        self.assertEqual(response[0], "200 OK")
+        self.assertEqual(run_job.call_args_list[0].args[0], ["all", "--notify", "smtp"])
+        self.assertEqual(run_job.call_args_list[1].args[0], ["purge-uploads"])
+
+    @staticmethod
+    def _invoke(environ):
+        result = {}
+
+        def start_response(status, _headers):
+            result["status"] = status
+
+        body = b"".join(app(environ, start_response))
+        return result["status"], body
 
 
 if __name__ == "__main__":

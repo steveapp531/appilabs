@@ -38,7 +38,7 @@ erDiagram
 
 ## Migrations
 
-Files in `backend/src/migrations` named `NNN-description.js` export `up(db)`. They run in order on API start-up and with `npm run migrate`, and each is recorded in `_migrations` so it runs once. `001` creates all indexes; `002` is an example data migration. To add one, create `003-your-change.js`.
+Files in `backend/src/migrations` named `NNN-description.js` export `up(db)`. They run in order on API start-up and with `npm run migrate`, and each is recorded in `_migrations` so it runs once. `001` creates all indexes; `002` is an example data migration. To add one, create `003-your-change.js` and register its `up` export in `runner.js` so serverless bundlers include it.
 
 ## Seeding
 

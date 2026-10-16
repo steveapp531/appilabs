@@ -34,7 +34,8 @@ Options: `--hours 24` (stale), `--days 14` (upcoming), `--window 90` (enrollment
 
 ## Scheduling
 
-- **Render cron job:** defined in `render.yaml` (`appilabs-reports`, daily at 07:00 UTC).
+- **Vercel Cron:** defined in the root `vercel.json`, daily at 07:00 UTC. It calls `app.py`, which requires `CRON_SECRET`, runs all reports, then purges expired uploads. Vercel injects `APPILABS_API_URL` through the automation-to-backend service binding; set `APPILABS_AUTOMATION_API_KEY` to the same value as the backend's `AUTOMATION_API_KEY`.
+- **Render alternative:** the optional `render.yaml` defines an `appilabs-reports` cron job.
 - **GitHub Actions:** `.github/workflows/reports.yml` (weekdays, saves reports as build artifacts).
 - **Your own machine:** `crontab -e` and add `0 7 * * * cd /path/to/appilabs/automation && python3 -m appilabs_automation all --notify file`. On Windows, use Task Scheduler.
 

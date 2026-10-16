@@ -28,7 +28,7 @@ import admin from './modules/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export function createApp() {
+export function createApp({ beforeApiRoutes } = {}) {
   const app = express();
   app.set('trust proxy', env.TRUST_PROXY);
   app.disable('x-powered-by');
@@ -50,6 +50,13 @@ export function createApp() {
     }),
   );
   app.use(compression());
+
+  if (beforeApiRoutes) {
+    app.use((req, res, next) => {
+      if (!req.path.startsWith('/api/v1/') || req.path === '/api/v1/health') return next();
+      return beforeApiRoutes(req, res, next);
+    });
+  }
 
   // Webhooks need the raw body: mount before JSON parsing.
   app.post('/api/v1/payments/webhook/paystack', ...paystackWebhook);

@@ -20,7 +20,7 @@ export const passwordSchema = z.string().min(10, 'Use at least 10 characters').m
 const cookieOptions = () => ({
   httpOnly: true,
   secure: env.COOKIE_SECURE,
-  // Frontend (Vercel) and API (Render) are different sites in production, so the cookie must be SameSite=None + Secure.
+  // SameSite=None supports the Render split deployment; it is also valid when Vercel serves both on one origin.
   sameSite: env.COOKIE_SECURE ? 'none' : 'lax',
   path: '/api/v1/auth',
   maxAge: env.REFRESH_TOKEN_DAYS * 86400000,
